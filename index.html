@@ -77,7 +77,7 @@ renderRequests();
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, deleteUser, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, addDoc, collection, query, where, orderBy, getDocs, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -127,9 +127,28 @@ document.getElementById("registerForm").addEventListener("submit", async e => {
     const uid = credential.user.uid;
     const profile = { uid, role, displayName, city, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), demo: true, status: "demo_pending" };
     if (role === "captain") profile.availability = "unavailable";
-    await setDoc(doc(db, "users", uid), profile);
-    await addDoc(collection(db, "activityEvents"), { actorUid: uid, actorRole: role, eventType: "demo_account_created", targetType: "user", targetId: uid, summary: "تم إنشاء حساب تجريبي", createdAt: serverTimestamp(), demo: true });
-    say(statusEl, "تم إنشاء حساب المصادقة. جارٍ التحقق من حفظ الملف السحابي…");
+
+    try {
+      await setDoc(doc(db, "users", uid), profile);
+    } catch (profileError) {
+      try {
+        await deleteUser(credential.user);
+        say(statusEl, "لم يكتمل التسجيل لأن ملف الحساب لم يُحفظ في Firestore؛ حُذف حساب المصادقة التجريبي لتفادي ترك حساب غير مكتمل. " + safeError(profileError));
+      } catch (rollbackError) {
+        try { await signOut(auth); } catch {}
+        say(statusEl, "فشل حفظ ملف الحساب في Firestore، وتعذر حذف حساب المصادقة التجريبي تلقائيًا. لا تحاول إنشاء الحساب بالبريد نفسه مجددًا قبل مراجعة Firebase Authentication. سبب الحفظ: " + safeError(profileError) + "؛ سبب التراجع: " + safeError(rollbackError));
+      }
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, "activityEvents"), { actorUid: uid, actorRole: role, eventType: "demo_account_created", targetType: "user", targetId: uid, summary: "تم إنشاء حساب تجريبي", createdAt: serverTimestamp(), demo: true });
+    } catch (eventError) {
+      say(statusEl, "تم إنشاء الحساب وحفظ ملفه السحابي، لكن تعذر تسجيل حدث النشاط. يمكنك المتابعة؛ التفاصيل: " + safeError(eventError));
+      return;
+    }
+
+    say(statusEl, "تم إنشاء الحساب التجريبي وحفظ ملفه السحابي وحدث النشاط بنجاح.");
   } catch (error) { say(statusEl, safeError(error)); }
 });
 document.getElementById("loginForm").addEventListener("submit", async e => {

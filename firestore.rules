@@ -14,6 +14,31 @@ service cloud.firestore {
       return request.resource.data[fieldName] == request.time;
     }
 
+    // A client action is allowed only for an existing, correctly typed demo profile.
+    // "demo_pending" is the only account status issued by this demo-only frontend.
+    function isDemoUserWithRole(uid, role) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.uid == uid
+        && get(/databases/$(database)/documents/users/$(uid)).data.role == role
+        && get(/databases/$(database)/documents/users/$(uid)).data.demo == true
+        && get(/databases/$(database)/documents/users/$(uid)).data.status == 'demo_pending';
+    }
+
+    // Enforce a simple, one-way request lifecycle for captain updates.
+    function validRequestStatusTransition(currentStatus, nextStatus) {
+      return (
+          currentStatus == 'new'
+          && nextStatus in ['accepted', 'declined', 'cancelled']
+        ) || (
+          currentStatus == 'accepted'
+          && nextStatus in ['in_service', 'cancelled']
+        ) || (
+          currentStatus == 'in_service'
+          && nextStatus == 'completed'
+        );
+    }
+
     match /users/{uid} {
       allow read: if owns(uid) || isAdmin();
       allow create: if owns(uid)
@@ -76,17 +101,17 @@ service cloud.firestore {
         && request.resource.data.demo == true
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'guardian'
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.demo == true;
+        && isDemoUserWithRole(request.auth.uid, 'guardian');
       allow read: if isAdmin()
         || (signedIn() && resource.data.guardianUid == request.auth.uid)
         || (signedIn() && resource.data.captainUid == request.auth.uid);
       allow update: if isAdmin()
         || (signedIn()
           && resource.data.captainUid == request.auth.uid
+          && isDemoUserWithRole(request.auth.uid, 'captain')
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
           && request.resource.data.updatedAt == request.time
-          && request.resource.data.status in ['accepted', 'declined', 'in_service', 'completed', 'cancelled']);
+          && validRequestStatusTransition(resource.data.status, request.resource.data.status));
       allow delete: if isAdmin();
     }
 
@@ -100,7 +125,7 @@ service cloud.firestore {
         ])
         && request.resource.data.actorUid == request.auth.uid
         && request.resource.data.actorRole in ['guardian', 'captain']
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == request.resource.data.actorRole
+        && isDemoUserWithRole(request.auth.uid, request.resource.data.actorRole)
         && request.resource.data.eventType in ['demo_account_created', 'demo_request_created']
         && request.resource.data.targetType in ['user', 'serviceRequest']
         && request.resource.data.targetId is string

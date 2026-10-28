@@ -37,7 +37,7 @@ after(async () => {
   await env.cleanup();
 });
 
-async function seedProfile(uid, role = "guardian") {
+async function seedProfile(uid, role = "guardian", overrides = {}) {
   await env.withSecurityRulesDisabled(async context => {
     const profile = {
       uid,
@@ -47,9 +47,10 @@ async function seedProfile(uid, role = "guardian") {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       demo: true,
-      status: "demo_pending"
+      status: "demo_pending",
+      ...(role === "captain" ? { availability: "unavailable" } : {}),
+      ...overrides
     };
-    if (role === "captain") profile.availability = "unavailable";
     await setDoc(doc(context.firestore(), "users", uid), profile);
   });
 }
@@ -258,6 +259,9 @@ test("only the request's guardian and assigned captain may read a service reques
 });
 
 test("only the assigned captain can update an allowed request status and no pricing fields", async () => {
+  await seedProfile("captain-1", "captain");
+  await seedProfile("captain-2", "captain");
+  await seedProfile("guardian-1", "guardian");
   await seedServiceRequest("assigned", { guardianUid: "guardian-1", captainUid: "captain-1" });
   await seedServiceRequest("unassigned", { guardianUid: "guardian-1", captainUid: null });
 
@@ -314,6 +318,102 @@ test("service requests reject unsupported cities, prices, and initial statuses",
   await assertFails(addDoc(collection(db, "serviceRequests"), {
     ...validRequest,
     status: "accepted"
+  }));
+});
+
+
+test("assigned user must have a valid demo captain profile to update a request", async () => {
+  await seedProfile("captain-1", "captain");
+  await seedProfile("guardian-1", "guardian");
+  await seedProfile("suspended-captain", "captain", { status: "suspended" });
+
+  await seedServiceRequest("valid-captain-request", {
+    guardianUid: "guardian-1",
+    captainUid: "captain-1"
+  });
+  await seedServiceRequest("guardian-role-request", {
+    guardianUid: "guardian-1",
+    captainUid: "guardian-1"
+  });
+  await seedServiceRequest("suspended-captain-request", {
+    guardianUid: "guardian-1",
+    captainUid: "suspended-captain"
+  });
+  await seedServiceRequest("missing-profile-request", {
+    guardianUid: "guardian-1",
+    captainUid: "no-profile-user"
+  });
+
+  const captain = env.authenticatedContext("captain-1").firestore();
+  const guardian = env.authenticatedContext("guardian-1").firestore();
+  const suspended = env.authenticatedContext("suspended-captain").firestore();
+  const noProfile = env.authenticatedContext("no-profile-user").firestore();
+
+  await assertSucceeds(updateDoc(doc(captain, "serviceRequests", "valid-captain-request"), {
+    status: "accepted",
+    updatedAt: serverTimestamp()
+  }));
+  await assertFails(updateDoc(doc(guardian, "serviceRequests", "guardian-role-request"), {
+    status: "accepted",
+    updatedAt: serverTimestamp()
+  }));
+  await assertFails(updateDoc(doc(suspended, "serviceRequests", "suspended-captain-request"), {
+    status: "accepted",
+    updatedAt: serverTimestamp()
+  }));
+  await assertFails(updateDoc(doc(noProfile, "serviceRequests", "missing-profile-request"), {
+    status: "accepted",
+    updatedAt: serverTimestamp()
+  }));
+});
+
+test("captain request status transitions follow the allowed lifecycle", async () => {
+  await seedProfile("captain-1", "captain");
+
+  for (const [requestId, status] of [
+    ["from-new", "new"],
+    ["from-accepted", "accepted"],
+    ["from-in-service", "in_service"],
+    ["from-completed", "completed"],
+    ["from-declined", "declined"]
+  ]) {
+    await seedServiceRequest(requestId, {
+      guardianUid: "guardian-1",
+      captainUid: "captain-1",
+      status
+    });
+  }
+
+  const captain = env.authenticatedContext("captain-1").firestore();
+
+  await assertSucceeds(updateDoc(doc(captain, "serviceRequests", "from-new"), {
+    status: "accepted",
+    updatedAt: serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(doc(captain, "serviceRequests", "from-accepted"), {
+    status: "in_service",
+    updatedAt: serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(doc(captain, "serviceRequests", "from-in-service"), {
+    status: "completed",
+    updatedAt: serverTimestamp()
+  }));
+
+  await assertFails(updateDoc(doc(captain, "serviceRequests", "from-new"), {
+    status: "completed",
+    updatedAt: serverTimestamp()
+  }));
+  await assertFails(updateDoc(doc(captain, "serviceRequests", "from-accepted"), {
+    status: "completed",
+    updatedAt: serverTimestamp()
+  }));
+  await assertFails(updateDoc(doc(captain, "serviceRequests", "from-completed"), {
+    status: "cancelled",
+    updatedAt: serverTimestamp()
+  }));
+  await assertFails(updateDoc(doc(captain, "serviceRequests", "from-declined"), {
+    status: "accepted",
+    updatedAt: serverTimestamp()
   }));
 });
 

@@ -19,13 +19,26 @@ test("published Cloudflare Worker responds to a read-only HTTP smoke check", {
   }
 
   const body = await response.text();
-  const sourceBase = "https://raw.githubusercontent.com/anjazalsaad-ai/saad-educational-transport/";
-  const [mainSourceResponse, featureSourceResponse] = await Promise.all([
-    fetch(sourceBase + "main/index.html", { signal: AbortSignal.timeout(15000) }),
-    fetch(sourceBase + "feature/demo-database-admin/index.html", { signal: AbortSignal.timeout(15000) })
+  const repoApi = "https://api.github.com/repos/anjazalsaad-ai/saad-educational-transport";
+  const [mainRefResponse, featureRefResponse] = await Promise.all([
+    fetch(repoApi + "/git/ref/heads/main", { signal: AbortSignal.timeout(15000) }),
+    fetch(repoApi + "/git/ref/heads/feature/demo-database-admin", { signal: AbortSignal.timeout(15000) })
   ]);
-  assert.ok(mainSourceResponse.ok, "could not fetch read-only main/index.html for source comparison");
-  assert.ok(featureSourceResponse.ok, "could not fetch read-only feature/index.html for source comparison");
+  assert.ok(mainRefResponse.ok, "could not retrieve main ref from GitHub API");
+  assert.ok(featureRefResponse.ok, "could not retrieve feature ref from GitHub API");
+  const [mainRef, featureRef] = await Promise.all([
+    mainRefResponse.json(),
+    featureRefResponse.json()
+  ]);
+  const mainCommit = mainRef.object.sha;
+  const featureCommit = featureRef.object.sha;
+  const immutableRaw = "https://raw.githubusercontent.com/anjazalsaad-ai/saad-educational-transport/";
+  const [mainSourceResponse, featureSourceResponse] = await Promise.all([
+    fetch(immutableRaw + mainCommit + "/index.html", { signal: AbortSignal.timeout(15000), cache: "no-store" }),
+    fetch(immutableRaw + featureCommit + "/index.html", { signal: AbortSignal.timeout(15000), cache: "no-store" })
+  ]);
+  assert.ok(mainSourceResponse.ok, "could not fetch immutable main/index.html for source comparison");
+  assert.ok(featureSourceResponse.ok, "could not fetch immutable feature/index.html for source comparison");
   const [mainSource, featureSource] = await Promise.all([
     mainSourceResponse.text(),
     featureSourceResponse.text()
@@ -35,6 +48,10 @@ test("published Cloudflare Worker responds to a read-only HTTP smoke check", {
     finalUrl: response.url,
     contentType: response.headers.get("content-type"),
     htmlBytes: Buffer.byteLength(body, "utf8"),
+    mainCommit,
+    featureCommit,
+    mainSourceUrl: mainSourceResponse.url,
+    featureSourceUrl: featureSourceResponse.url,
     matchesCurrentMainHtmlExactly: body === mainSource,
     matchesFeatureHtmlExactly: body === featureSource,
     mainSourceBytes: Buffer.byteLength(mainSource, "utf8"),

@@ -10,34 +10,74 @@ service cloud.firestore {
     function owns(uid) {
       return signedIn() && request.auth.uid == uid;
     }
+    function validDemoTimestamp(fieldName) {
+      return request.resource.data[fieldName] == request.time;
+    }
 
-    // Profile documents are keyed by Firebase Auth UID. Users cannot grant themselves admin.
     match /users/{uid} {
       allow read: if owns(uid) || isAdmin();
       allow create: if owns(uid)
+        && request.resource.data.keys().hasAll([
+          'uid', 'role', 'displayName', 'city', 'createdAt', 'updatedAt', 'demo', 'status'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'uid', 'role', 'displayName', 'city', 'createdAt', 'updatedAt',
+          'demo', 'status', 'availability'
+        ])
         && request.resource.data.uid == uid
         && request.resource.data.role in ['guardian', 'captain']
-        && request.resource.data.keys().hasOnly([
-          'uid', 'role', 'displayName', 'phone', 'city', 'createdAt', 'updatedAt',
-          'demo', 'status', 'availability'
-        ]);
-      allow update: if (owns(uid) && resource.data.role == request.resource.data.role
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 80
+        && request.resource.data.city in ['جدة', 'مكة المكرمة', 'الرياض', 'مدينة أخرى']
+        && request.resource.data.demo == true
+        && request.resource.data.status == 'demo_pending'
+        && validDemoTimestamp('createdAt')
+        && validDemoTimestamp('updatedAt')
+        && (
+          (request.resource.data.role == 'guardian' && !('availability' in request.resource.data))
+          || (request.resource.data.role == 'captain' && request.resource.data.availability == 'unavailable')
+        );
+      allow update: if owns(uid)
+        && resource.data.role == request.resource.data.role
         && request.resource.data.uid == resource.data.uid
+        && request.resource.data.demo == true
+        && request.resource.data.status == resource.data.status
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'displayName', 'phone', 'city', 'updatedAt', 'availability'
-        ])) || isAdmin();
+          'displayName', 'city', 'updatedAt', 'availability'
+        ])
+        && request.resource.data.updatedAt == request.time
+        && (
+          !('availability' in request.resource.data)
+          || (resource.data.role == 'captain' && request.resource.data.availability in ['available', 'unavailable'])
+        )
+        || isAdmin();
       allow delete: if isAdmin();
     }
 
-    // Requests are readable only by their guardian, assigned captain, or admin.
     match /serviceRequests/{requestId} {
       allow create: if signedIn()
-        && request.resource.data.guardianUid == request.auth.uid
-        && request.resource.data.status == 'new'
+        && request.resource.data.keys().hasAll([
+          'guardianUid', 'captainUid', 'city', 'destinationType', 'serviceType',
+          'priceMonthly', 'status', 'createdAt', 'updatedAt', 'demo'
+        ])
         && request.resource.data.keys().hasOnly([
           'guardianUid', 'captainUid', 'city', 'destinationType', 'serviceType',
           'priceMonthly', 'status', 'createdAt', 'updatedAt', 'demo'
-        ]);
+        ])
+        && request.resource.data.guardianUid == request.auth.uid
+        && request.resource.data.captainUid == null
+        && request.resource.data.city in ['جدة', 'مكة المكرمة', 'الرياض', 'مدينة أخرى']
+        && request.resource.data.destinationType in ['مدرسة', 'جامعة']
+        && request.resource.data.serviceType in ['ذهاب وعودة', 'ذهاب فقط', 'عودة فقط']
+        && request.resource.data.priceMonthly is number
+        && request.resource.data.priceMonthly in [1000, 1150]
+        && request.resource.data.status == 'new'
+        && request.resource.data.demo == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'guardian'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.demo == true;
       allow read: if isAdmin()
         || (signedIn() && resource.data.guardianUid == request.auth.uid)
         || (signedIn() && resource.data.captainUid == request.auth.uid);
@@ -45,17 +85,29 @@ service cloud.firestore {
         || (signedIn()
           && resource.data.captainUid == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          && request.resource.data.updatedAt == request.time
           && request.resource.data.status in ['accepted', 'declined', 'in_service', 'completed', 'cancelled']);
       allow delete: if isAdmin();
     }
 
-    // Append-only activity events: clients may create narrowly-scoped events, never edit/delete.
     match /activityEvents/{eventId} {
       allow create: if signedIn()
-        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'actorUid', 'actorRole', 'eventType', 'targetType', 'targetId', 'summary', 'createdAt', 'demo'
+        ])
         && request.resource.data.keys().hasOnly([
           'actorUid', 'actorRole', 'eventType', 'targetType', 'targetId', 'summary', 'createdAt', 'demo'
-        ]);
+        ])
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.actorRole in ['guardian', 'captain']
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == request.resource.data.actorRole
+        && request.resource.data.eventType in ['demo_account_created', 'demo_request_created']
+        && request.resource.data.targetType in ['user', 'serviceRequest']
+        && request.resource.data.targetId is string
+        && request.resource.data.summary is string
+        && request.resource.data.summary.size() <= 160
+        && request.resource.data.demo == true
+        && request.resource.data.createdAt == request.time;
       allow read: if isAdmin()
         || (signedIn() && resource.data.actorUid == request.auth.uid);
       allow update, delete: if false;

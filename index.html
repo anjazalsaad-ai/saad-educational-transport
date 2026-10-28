@@ -10,7 +10,41 @@
 <body>
 <header class="top"><small>نموذج تجريبي محلي — لا توجد مدفوعات أو حجوزات حقيقية</small><h1>منصة السعد للنقل التعليمي</h1><p>ربط ولي الأمر بمقدم نقل تعليمي مناسب، مع اشتراكات شهرية واضحة وتسوية تحفظ حقوق الطرفين.</p></header>
 <main class="wrap">
-<div class="notice"><strong>تنبيه:</strong> هذه نسخة أولية محلية. تُحفظ بيانات الاختبار في هذا المتصفح فقط. لا توجد حجوزات حقيقية أو بوابة دفع.</div>
+<div class="notice"><strong>تنبيه:</strong> نسخة تجريبية. لا تستخدم أسماء أو أرقام جوالات أو بيانات أطفال حقيقية. لا توجد حجوزات ملزمة أو مدفوعات.</div>
+<section class="panel" id="cloudPanel">
+<h2>الحساب التجريبي وقاعدة البيانات السحابية</h2>
+<p class="muted">يمكنك إنشاء حساب تجريبي بالبريد الإلكتروني وكلمة مرور. لا توجد رسائل SMS. بيانات الحساب تُحفظ في Firebase عند نجاح الاتصال؛ لا تعتبر بيانات الاختبار المحلية أدناه متزامنة مع السحابة.</p>
+<div class="grid">
+<form id="registerForm" class="tile">
+<strong>إنشاء حساب تجريبي</strong>
+<label class="field"><span>نوع الحساب</span><select id="regRole" required><option value="guardian">ولي أمر</option><option value="captain">كابتن</option></select></label>
+<label class="field"><span>اسم تجريبي</span><input id="regName" maxlength="80" required autocomplete="name" placeholder="اسم افتراضي فقط"></label>
+<label class="field"><span>البريد الإلكتروني</span><input id="regEmail" type="email" required autocomplete="email" placeholder="demo@example.com"></label>
+<label class="field"><span>كلمة المرور (٨ أحرف على الأقل)</span><input id="regPassword" type="password" minlength="8" required autocomplete="new-password"></label>
+<label class="field"><span>المدينة</span><select id="regCity"><option>جدة</option><option>مكة المكرمة</option><option>الرياض</option><option>مدينة أخرى</option></select></label>
+<button class="action" type="submit">إنشاء حساب سحابي</button>
+</form>
+<form id="loginForm" class="tile">
+<strong>تسجيل الدخول</strong>
+<label class="field"><span>البريد الإلكتروني</span><input id="loginEmail" type="email" required autocomplete="email"></label>
+<label class="field"><span>كلمة المرور</span><input id="loginPassword" type="password" required autocomplete="current-password"></label>
+<button class="action" type="submit">دخول</button>
+<button class="action" type="button" id="logoutBtn">تسجيل الخروج</button>
+<div id="accountStatus" class="result" aria-live="polite">لم يتم تسجيل الدخول.</div>
+</form>
+</div>
+<div id="cloudStatus" class="result" aria-live="polite">جارٍ تهيئة الاتصال السحابي…</div>
+<div class="grid">
+<div class="tile"><strong>طلب اشتراك سحابي (تجريبي)</strong>
+<label class="field"><span>المدينة</span><select id="cloudCity"><option>جدة</option><option>مكة المكرمة</option><option>الرياض</option><option>مدينة أخرى</option></select></label>
+<label class="field"><span>الوجهة</span><select id="cloudDestination"><option>مدرسة</option><option>جامعة</option></select></label>
+<label class="field"><span>نوع الخدمة</span><select id="cloudService"><option>ذهاب وعودة</option><option>ذهاب فقط</option><option>عودة فقط</option></select></label>
+<label class="field"><span>السعر الافتراضي الشهري (ريال)</span><select id="cloudPrice"><option value="1000">١٬٠٠٠</option><option value="1150">١٬١٥٠</option></select></label>
+<button class="action" id="createCloudRequest" type="button">حفظ طلب تجريبي في السحابة</button></div>
+<div class="tile"><strong>بيانات الحساب والطلبات</strong><button class="action" id="refreshCloud" type="button">تحديث بياناتي وطلباتي</button><div id="cloudData" class="muted">سجّل الدخول أولًا.</div></div>
+</div>
+<div class="tile"><strong>لوحة الإدارة</strong><p class="muted">تتطلب مطالبة صلاحية موثوقة <code>admin=true</code> من Firebase. لا يمكن إنشاء صلاحية الإدارة من واجهة الموقع.</p><button class="action" id="adminLoad" type="button">فتح بيانات الإدارة</button><div id="adminData" class="muted">غير محمّلة.</div></div>
+</section>
 <nav class="tabs" aria-label="أقسام النموذج"><button class="active" data-tab="guardian">واجهة ولي الأمر</button><button data-tab="captain">واجهة الكابتن</button><button data-tab="admin">لوحة الإدارة</button></nav>
 <section id="guardian" class="tabview">
 <div class="panel"><h2>ابحث عن خدمة نقل</h2><p class="muted">أدخل معلومات افتراضية لتجربة شكل طلب الاشتراك. لا ترسل بيانات طفل حقيقية في هذا النموذج.</p>
@@ -23,7 +57,7 @@
 </section>
 <section id="captain" class="tabview hidden"><div class="panel"><h2>واجهة الكابتن</h2><p class="muted">في النسخة التجريبية يستطيع الكابتن مراجعة حالة نموذجية دون رفع مستندات حقيقية.</p><div class="grid"><div class="tile"><strong>حالة الحساب</strong><span>بانتظار التحقق التجريبي</span></div><div class="tile"><strong>اشتراك المنصة</strong><span>٣٠٠ ريال شهريًا — قيمة محددة في مواصفات المشروع، غير مفعّلة للتحصيل</span></div><div class="tile"><strong>طلبات النقل</strong><span>لا توجد طلبات حقيقية</span></div></div><label class="field"><span>توافر الكابتن (تجريبي)</span><select id="availability"><option>متاح لاستقبال الطلبات</option><option>غير متاح مؤقتًا</option></select></label><button class="action" id="availabilityBtn">حفظ الحالة التجريبية</button><div id="availabilityResult" class="result hidden"></div><div class="panel"><h3>حاسبة التسوية الشهرية (تجريبية)</h3><label class="field"><span>قيمة الاشتراك (ريال)</span><input id="monthlyFee" type="number" min="0" value="1000"></label><label class="field"><span>أيام النقل المجدولة</span><input id="scheduledDays" type="number" min="1" value="20"></label><label class="field"><span>أيام الخدمة المقدمة</span><input id="servedDays" type="number" min="0" value="8"></label><button class="action" id="calculateSettlement">احسب التسوية التجريبية</button><div id="settlementResult" class="result hidden"></div></div></div></section>
 <section id="admin" class="tabview hidden"><div class="panel"><h2>لوحة الإدارة</h2><p class="muted">ملخص افتراضي لعرض شكل لوحة الإدارة. لا توجد بيانات مستخدمين فعلية.</p><div class="grid"><div class="tile"><strong>الكباتن</strong><div class="price">٠</div><span class="muted">حسابات حقيقية</span></div><div class="tile"><strong>الاشتراكات النشطة</strong><div class="price">٠</div><span class="muted">اشتراكات حقيقية</span></div><div class="tile"><strong>مدفوعات فعلية</strong><div class="price">٠ ر.س</div><span class="muted">لا توجد مدفوعات في النموذج</span></div><div class="tile"><strong>طلبات الاسترداد</strong><div class="price">٠</div><span class="muted">طلبات فعلية</span></div></div><h3>قاعدة التسوية المقترحة</h3><p>يُحسب صافي مستحق الكابتن بعد نهاية فترة الخدمة، وتُراجع أيام النقل المنفذة والإلغاءات قبل التسوية. التطبيق الفعلي مشروط بموافقة مزود دفع مرخص على نموذج الحجز والتسوية.</p></div></section>
-<div class="foot">الإصدار ٠٫١ — نموذج واجهات فقط — تخزين محلي في المتصفح فقط — لا إرسال بيانات — لم يتم نشره على الإنترنت.</div>
+<div class="foot">نسخة تطوير تجريبية — Firebase سحابي عند نجاح تسجيل الدخول والاتصال، مع بقاء محاكاة الواجهات المحلية منفصلة — لا SMS ولا مدفوعات — لا تُدخل بيانات حقيقية.</div>
 </main>
 <script>
 const STORAGE_KEY='saad_transport_demo_v02';
@@ -39,5 +73,175 @@ document.getElementById('availabilityBtn').addEventListener('click',()=>{state.a
 document.getElementById('calculateSettlement').addEventListener('click',()=>{const fee=Math.max(0,Number(document.getElementById('monthlyFee').value)||0),days=Math.max(1,Number(document.getElementById('scheduledDays').value)||1),served=Math.min(days,Math.max(0,Number(document.getElementById('servedDays').value)||0));const daily=fee/days,earned=daily*served,refund=fee-earned;const el=document.getElementById('settlementResult');el.classList.remove('hidden');el.textContent=`قيمة اليوم: ${daily.toFixed(2)} ريال. مستحق الخدمة المقدمة: ${earned.toFixed(2)} ريال. الرصيد المبدئي للاسترداد عن الأيام غير المخدومة: ${refund.toFixed(2)} ريال. هذا حساب توضيحي ولا ينفذ تحويلًا أو استردادًا فعليًا.`;});
 document.getElementById('clearDemo').addEventListener('click',()=>{if(confirm('هل تريد مسح طلبات الاختبار وحالة التوافر المحفوظة في هذا المتصفح؟')){state={requests:[],availability:'متاح لاستقبال الطلبات'};localStorage.removeItem(STORAGE_KEY);document.getElementById('availability').value=state.availability;renderRequests();document.getElementById('requestResult').classList.add('hidden');}});
 renderRequests();
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, deleteUser, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, addDoc, collection, query, where, orderBy, getDocs, serverTimestamp, limit, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB9cJKNa_hBdzJqOmRz1I99qeyeqk-nHjQ",
+  authDomain: "saad-educational-transport.firebaseapp.com",
+  projectId: "saad-educational-transport",
+  storageBucket: "saad-educational-transport.firebasestorage.app",
+  messagingSenderId: "595921426217",
+  appId: "1:595921426217:web:1b12c91f49e77c82394938"
+};
+const useLocalFirebaseEmulators =
+  new URLSearchParams(window.location.search).get("emulator") === "1" &&
+  ["localhost", "127.0.0.1"].includes(window.location.hostname);
+if (useLocalFirebaseEmulators) {
+  // This override is reachable only from localhost with an explicit emulator flag.
+  // It prevents end-to-end tests from targeting the production Firebase project.
+  firebaseConfig.projectId = "saad-educational-transport-rules-test";
+}
+const statusEl = document.getElementById("cloudStatus");
+const accountEl = document.getElementById("accountStatus");
+const dataEl = document.getElementById("cloudData");
+const adminEl = document.getElementById("adminData");
+let auth, db, currentUser = null, currentProfile = null;
+function say(el, message) { if (el) el.textContent = message; }
+function safeError(error) {
+  const map = {
+    "auth/email-already-in-use": "هذا البريد مسجل مسبقًا.",
+    "auth/invalid-email": "صيغة البريد الإلكتروني غير صحيحة.",
+    "auth/weak-password": "كلمة المرور ضعيفة؛ استخدم ٨ أحرف على الأقل.",
+    "auth/invalid-credential": "بيانات الدخول غير صحيحة.",
+    "auth/network-request-failed": "تعذر الاتصال بالشبكة. تحقق من الإنترنت وحاول مجددًا.",
+    "auth/too-many-requests": "محاولات كثيرة؛ انتظر قليلًا ثم أعد المحاولة.",
+    "permission-denied": "رفضت قواعد Firestore العملية. لم تُحفظ البيانات."
+  };
+  return map[error?.code] || ("تعذر إكمال العملية: " + (error?.message || "خطأ غير معروف"));
+}
+try {
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  if (useLocalFirebaseEmulators) {
+    connectAuthEmulator(auth, `http://${window.location.hostname}:9099`, { disableWarnings: true });
+    connectFirestoreEmulator(db, window.location.hostname, 8080);
+    say(statusEl, "وضع اختبار محلي: Firebase Authentication وFirestore متصلان بالمحاكيات المحلية فقط؛ لا تُستخدم قاعدة الإنتاج.");
+  } else {
+    say(statusEl, "تمت تهيئة Firebase في المتصفح. يلزم تسجيل الدخول وقواعد Firestore المناسبة لاختبار الحفظ.");
+  }
+} catch (e) { say(statusEl, "تعذر تهيئة Firebase: " + e.message); }
+
+document.getElementById("registerForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!auth || !db) return say(statusEl, "اتصال Firebase غير متاح.");
+  const role = document.getElementById("regRole").value;
+  const displayName = document.getElementById("regName").value.trim();
+  const email = document.getElementById("regEmail").value.trim();
+  const password = document.getElementById("regPassword").value;
+  const city = document.getElementById("regCity").value;
+  if (!displayName || displayName.length > 80) return say(statusEl, "أدخل اسمًا تجريبيًا من ١ إلى ٨٠ حرفًا.");
+  try {
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = credential.user.uid;
+    const profile = { uid, role, displayName, city, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), demo: true, status: "demo_pending" };
+    if (role === "captain") profile.availability = "unavailable";
+
+    try {
+      await setDoc(doc(db, "users", uid), profile);
+    } catch (profileError) {
+      try {
+        await deleteUser(credential.user);
+        currentUser = null;
+        currentProfile = null;
+        say(statusEl, "لم يكتمل التسجيل لأن ملف الحساب لم يُحفظ في Firestore؛ حُذف حساب المصادقة التجريبي لتفادي ترك حساب غير مكتمل. " + safeError(profileError));
+      } catch (rollbackError) {
+        try { await signOut(auth); } catch {}
+        currentUser = null;
+        currentProfile = null;
+        say(statusEl, "فشل حفظ ملف الحساب في Firestore، وتعذر حذف حساب المصادقة التجريبي تلقائيًا. لا تحاول إنشاء الحساب بالبريد نفسه مجددًا قبل مراجعة Firebase Authentication. سبب الحفظ: " + safeError(profileError) + "؛ سبب التراجع: " + safeError(rollbackError));
+      }
+      return;
+    }
+
+    // Keep the just-created account available to the next UI action; the auth-state
+    // callback may have run before the Firestore profile write completed.
+    currentUser = credential.user;
+    currentProfile = profile;
+    say(accountEl, "تم الدخول: " + credential.user.email + " — الدور: " + (role === "guardian" ? "ولي أمر" : "كابتن") + " — الحساب تجريبي.");
+    await refreshMyData();
+
+    try {
+      await addDoc(collection(db, "activityEvents"), { actorUid: uid, actorRole: role, eventType: "demo_account_created", targetType: "user", targetId: uid, summary: "تم إنشاء حساب تجريبي", createdAt: serverTimestamp(), demo: true });
+    } catch (eventError) {
+      say(statusEl, "تم إنشاء الحساب وحفظ ملفه السحابي، لكن تعذر تسجيل حدث النشاط. يمكنك المتابعة؛ التفاصيل: " + safeError(eventError));
+      return;
+    }
+
+    say(statusEl, "تم إنشاء الحساب التجريبي وحفظ ملفه السحابي وحدث النشاط بنجاح.");
+  } catch (error) { say(statusEl, safeError(error)); }
+});
+document.getElementById("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  try {
+    await signInWithEmailAndPassword(auth, document.getElementById("loginEmail").value.trim(), document.getElementById("loginPassword").value);
+    say(statusEl, "تم تسجيل الدخول.");
+  } catch (error) { say(statusEl, safeError(error)); }
+});
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  try { await signOut(auth); say(statusEl, "تم تسجيل الخروج."); } catch (error) { say(statusEl, safeError(error)); }
+});
+onAuthStateChanged(auth, async user => {
+  currentUser = user;
+  currentProfile = null;
+  if (!user) { say(accountEl, "لم يتم تسجيل الدخول."); say(dataEl, "سجّل الدخول أولًا."); return; }
+  try {
+    const snap = await getDoc(doc(db, "users", user.uid));
+    if (!snap.exists()) {
+      say(accountEl, "تم الدخول لكن ملف المستخدم غير موجود في Firestore. قد تكون قواعد الكتابة رفضت التسجيل؛ راجع حالة العملية.");
+      return;
+    }
+    currentProfile = snap.data();
+    say(accountEl, "تم الدخول: " + user.email + " — الدور: " + (currentProfile.role === "guardian" ? "ولي أمر" : "كابتن") + " — الحساب تجريبي.");
+    await refreshMyData();
+  } catch (error) { say(accountEl, safeError(error)); }
+});
+async function refreshMyData() {
+  if (!currentUser || !currentProfile) return say(dataEl, "سجّل الدخول أولًا.");
+  try {
+    const reqQ = query(collection(db, "serviceRequests"), where(currentProfile.role === "guardian" ? "guardianUid" : "captainUid", "==", currentUser.uid), limit(20));
+    const snap = await getDocs(reqQ);
+    const requests = snap.docs.map(d => {
+      const r = d.data();
+      return { id: d.id, city: r.city, destinationType: r.destinationType, serviceType: r.serviceType, priceMonthly: r.priceMonthly, status: r.status };
+    });
+    dataEl.textContent = "الحساب: " + currentProfile.displayName + "؛ المدينة: " + currentProfile.city + "؛ الحالة: " + currentProfile.status + "؛ عدد الطلبات المعروضة: " + requests.length + (requests.length ? " — " + requests.map(r => r.city + "، " + r.destinationType + "، " + r.serviceType + "، " + r.priceMonthly + " ريال، الحالة " + r.status).join(" | ") : " — لا توجد طلبات سحابية بعد.");
+  } catch (error) { say(dataEl, safeError(error)); }
+}
+document.getElementById("refreshCloud").addEventListener("click", refreshMyData);
+document.getElementById("createCloudRequest").addEventListener("click", async () => {
+  if (!currentUser || !currentProfile || currentProfile.role !== "guardian") return say(statusEl, "سجّل الدخول بحساب ولي أمر تجريبي لإنشاء طلب.");
+  try {
+    const ref = await addDoc(collection(db, "serviceRequests"), {
+      guardianUid: currentUser.uid, captainUid: null,
+      city: document.getElementById("cloudCity").value,
+      destinationType: document.getElementById("cloudDestination").value,
+      serviceType: document.getElementById("cloudService").value,
+      priceMonthly: Number(document.getElementById("cloudPrice").value),
+      status: "new", createdAt: serverTimestamp(), updatedAt: serverTimestamp(), demo: true
+    });
+    await addDoc(collection(db, "activityEvents"), { actorUid: currentUser.uid, actorRole: currentProfile.role, eventType: "demo_request_created", targetType: "serviceRequest", targetId: ref.id, summary: "تم إنشاء طلب اشتراك تجريبي", createdAt: serverTimestamp(), demo: true });
+    say(statusEl, "تم حفظ الطلب التجريبي في Firestore. رقم الطلب: " + ref.id);
+    await refreshMyData();
+  } catch (error) { say(statusEl, safeError(error)); }
+});
+document.getElementById("adminLoad").addEventListener("click", async () => {
+  if (!currentUser) return say(adminEl, "سجّل الدخول أولًا.");
+  try {
+    const token = await currentUser.getIdTokenResult(true);
+    if (token.claims.admin !== true) return say(adminEl, "غير مخوّل: حسابك لا يحمل صلاحية الإدارة الموثوقة admin=true. لم تُقرأ بيانات المستخدمين أو الطلبات.");
+    const [usersSnap, requestsSnap, eventsSnap] = await Promise.all([
+      getDocs(query(collection(db, "users"), orderBy("createdAt", "desc"), limit(100))),
+      getDocs(query(collection(db, "serviceRequests"), orderBy("createdAt", "desc"), limit(100))),
+      getDocs(query(collection(db, "activityEvents"), orderBy("createdAt", "desc"), limit(100)))
+    ]);
+    say(adminEl, "لوحة الإدارة السحابية — الحسابات: " + usersSnap.size + "، طلبات الاشتراك: " + requestsSnap.size + "، أحداث النشاط: " + eventsSnap.size + ". عُرضت أعداد فقط لحماية البيانات.");
+  } catch (error) { say(adminEl, safeError(error)); }
+});
 </script>
 </body></html>

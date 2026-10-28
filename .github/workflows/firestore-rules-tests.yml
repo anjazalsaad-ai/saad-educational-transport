@@ -1,0 +1,56 @@
+name: Transport Platform CI Tests
+
+on:
+  push:
+    branches:
+      - feature/demo-database-admin
+    paths:
+      - "index.html"
+      - "firestore.rules"
+      - "tests/**"
+      - "package.json"
+      - "firebase.json"
+      - ".github/workflows/firestore-rules-tests.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "firestore.rules"
+      - "tests/**"
+      - "package.json"
+      - "firebase.json"
+      - ".github/workflows/firestore-rules-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  platform-tests:
+    name: Browser-to-Firebase integration and authorization tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Set up Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Chromium for end-to-end browser checks
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser-to-Firebase integration tests and rules tests in local emulators
+        run: npx --yes firebase-tools emulators:exec --only auth,firestore --project saad-educational-transport-rules-test "npm test"

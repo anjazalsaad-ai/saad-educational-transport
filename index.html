@@ -160,7 +160,7 @@ onAuthStateChanged(auth, async user => {
 async function refreshMyData() {
   if (!currentUser || !currentProfile) return say(dataEl, "سجّل الدخول أولًا.");
   try {
-    const reqQ = query(collection(db, "serviceRequests"), where(currentProfile.role === "guardian" ? "guardianUid" : "captainUid", "==", currentUser.uid), orderBy("createdAt", "desc"), limit(20));
+    const reqQ = query(collection(db, "serviceRequests"), where(currentProfile.role === "guardian" ? "guardianUid" : "captainUid", "==", currentUser.uid), limit(20));
     const snap = await getDocs(reqQ);
     const requests = snap.docs.map(d => {
       const r = d.data();

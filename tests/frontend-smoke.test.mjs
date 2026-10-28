@@ -6,6 +6,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+const publicHtml = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+const wranglerConfig = JSON.parse(await readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
 const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
   .map(match => ({ attributes: match[1], code: match[2] }))
   .filter(script => script.code.trim().length > 0);
@@ -56,4 +58,13 @@ test("browser bundle does not embed Firebase Admin service-account credentials o
   assert.doesNotMatch(html, /-----BEGIN PRIVATE KEY-----/);
   assert.doesNotMatch(html, /firebase-admin/);
   assert.doesNotMatch(moduleScript.code, /signInWithPhoneNumber|PhoneAuthProvider/);
+});
+
+test("Cloudflare deploy config serves only the synchronized public index", () => {
+  assert.equal(publicHtml, html, "public/index.html must stay byte-for-byte synchronized with root index.html");
+  assert.equal(wranglerConfig.name, "saad-educational-transport");
+  assert.equal(wranglerConfig.compatibility_date, "2026-10-28");
+  assert.deepEqual(wranglerConfig.assets, { directory: "./public" });
+  assert.equal(wranglerConfig.workers_dev, true);
+  assert.equal(wranglerConfig.preview_urls, true);
 });

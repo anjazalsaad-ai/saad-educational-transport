@@ -26,9 +26,9 @@ permissions:
 
 jobs:
   platform-tests:
-    name: Frontend syntax and Firestore authorization tests
+    name: Browser-to-Firebase integration and authorization tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -49,5 +49,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run platform tests in local Firestore emulator
-        run: npx --yes firebase-tools emulators:exec --only firestore --project saad-educational-transport-rules-test "npm test"
+      - name: Install Chromium for end-to-end browser checks
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser-to-Firebase integration tests and rules tests in local emulators
+        run: npx --yes firebase-tools emulators:exec --only auth,firestore --project saad-educational-transport-rules-test "npm test"

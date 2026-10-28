@@ -77,8 +77,8 @@ renderRequests();
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, deleteUser, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, addDoc, collection, query, where, orderBy, getDocs, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, deleteUser, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, addDoc, collection, query, where, orderBy, getDocs, serverTimestamp, limit, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB9cJKNa_hBdzJqOmRz1I99qeyeqk-nHjQ",
@@ -88,6 +88,14 @@ const firebaseConfig = {
   messagingSenderId: "595921426217",
   appId: "1:595921426217:web:1b12c91f49e77c82394938"
 };
+const useLocalFirebaseEmulators =
+  new URLSearchParams(window.location.search).get("emulator") === "1" &&
+  ["localhost", "127.0.0.1"].includes(window.location.hostname);
+if (useLocalFirebaseEmulators) {
+  // This override is reachable only from localhost with an explicit emulator flag.
+  // It prevents end-to-end tests from targeting the production Firebase project.
+  firebaseConfig.projectId = "saad-educational-transport-rules-test";
+}
 const statusEl = document.getElementById("cloudStatus");
 const accountEl = document.getElementById("accountStatus");
 const dataEl = document.getElementById("cloudData");
@@ -110,7 +118,13 @@ try {
   const app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
-  say(statusEl, "تمت تهيئة Firebase في المتصفح. يلزم تسجيل الدخول وقواعد Firestore المناسبة لاختبار الحفظ.");
+  if (useLocalFirebaseEmulators) {
+    connectAuthEmulator(auth, `http://${window.location.hostname}:9099`, { disableWarnings: true });
+    connectFirestoreEmulator(db, window.location.hostname, 8080);
+    say(statusEl, "وضع اختبار محلي: Firebase Authentication وFirestore متصلان بالمحاكيات المحلية فقط؛ لا تُستخدم قاعدة الإنتاج.");
+  } else {
+    say(statusEl, "تمت تهيئة Firebase في المتصفح. يلزم تسجيل الدخول وقواعد Firestore المناسبة لاختبار الحفظ.");
+  }
 } catch (e) { say(statusEl, "تعذر تهيئة Firebase: " + e.message); }
 
 document.getElementById("registerForm").addEventListener("submit", async e => {
@@ -133,13 +147,24 @@ document.getElementById("registerForm").addEventListener("submit", async e => {
     } catch (profileError) {
       try {
         await deleteUser(credential.user);
+        currentUser = null;
+        currentProfile = null;
         say(statusEl, "لم يكتمل التسجيل لأن ملف الحساب لم يُحفظ في Firestore؛ حُذف حساب المصادقة التجريبي لتفادي ترك حساب غير مكتمل. " + safeError(profileError));
       } catch (rollbackError) {
         try { await signOut(auth); } catch {}
+        currentUser = null;
+        currentProfile = null;
         say(statusEl, "فشل حفظ ملف الحساب في Firestore، وتعذر حذف حساب المصادقة التجريبي تلقائيًا. لا تحاول إنشاء الحساب بالبريد نفسه مجددًا قبل مراجعة Firebase Authentication. سبب الحفظ: " + safeError(profileError) + "؛ سبب التراجع: " + safeError(rollbackError));
       }
       return;
     }
+
+    // Keep the just-created account available to the next UI action; the auth-state
+    // callback may have run before the Firestore profile write completed.
+    currentUser = credential.user;
+    currentProfile = profile;
+    say(accountEl, "تم الدخول: " + credential.user.email + " — الدور: " + (role === "guardian" ? "ولي أمر" : "كابتن") + " — الحساب تجريبي.");
+    await refreshMyData();
 
     try {
       await addDoc(collection(db, "activityEvents"), { actorUid: uid, actorRole: role, eventType: "demo_account_created", targetType: "user", targetId: uid, summary: "تم إنشاء حساب تجريبي", createdAt: serverTimestamp(), demo: true });

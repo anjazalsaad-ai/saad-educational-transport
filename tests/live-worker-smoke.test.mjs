@@ -19,11 +19,26 @@ test("published Cloudflare Worker responds to a read-only HTTP smoke check", {
   }
 
   const body = await response.text();
+  const sourceBase = "https://raw.githubusercontent.com/anjazalsaad-ai/saad-educational-transport/";
+  const [mainSourceResponse, featureSourceResponse] = await Promise.all([
+    fetch(sourceBase + "main/index.html", { signal: AbortSignal.timeout(15000) }),
+    fetch(sourceBase + "feature/demo-database-admin/index.html", { signal: AbortSignal.timeout(15000) })
+  ]);
+  assert.ok(mainSourceResponse.ok, "could not fetch read-only main/index.html for source comparison");
+  assert.ok(featureSourceResponse.ok, "could not fetch read-only feature/index.html for source comparison");
+  const [mainSource, featureSource] = await Promise.all([
+    mainSourceResponse.text(),
+    featureSourceResponse.text()
+  ]);
   const diagnostics = {
     httpStatus: response.status,
     finalUrl: response.url,
     contentType: response.headers.get("content-type"),
     htmlBytes: Buffer.byteLength(body, "utf8"),
+    matchesCurrentMainHtmlExactly: body === mainSource,
+    matchesFeatureHtmlExactly: body === featureSource,
+    mainSourceBytes: Buffer.byteLength(mainSource, "utf8"),
+    featureSourceBytes: Buffer.byteLength(featureSource, "utf8"),
     platformTitlePresent: /<title[^>]*>[^<]*منصة السعد للنقل التعليمي[^<]*<\/title>/i.test(body),
     firebaseProjectConfigPresent: /projectId\s*:\s*["']saad-educational-transport["']/.test(body),
     cloudRegistrationUiPresent: /createUserWithEmailAndPassword/.test(body),

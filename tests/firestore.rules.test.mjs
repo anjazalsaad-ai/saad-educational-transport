@@ -373,6 +373,7 @@ test("captain request status transitions follow the allowed lifecycle", async ()
   for (const [requestId, status] of [
     ["from-new", "new"],
     ["from-accepted", "accepted"],
+    ["accepted-no-skip", "accepted"],
     ["from-in-service", "in_service"],
     ["from-completed", "completed"],
     ["from-declined", "declined"]
@@ -403,7 +404,7 @@ test("captain request status transitions follow the allowed lifecycle", async ()
     status: "completed",
     updatedAt: serverTimestamp()
   }));
-  await assertFails(updateDoc(doc(captain, "serviceRequests", "from-accepted"), {
+  await assertFails(updateDoc(doc(captain, "serviceRequests", "accepted-no-skip"), {
     status: "completed",
     updatedAt: serverTimestamp()
   }));

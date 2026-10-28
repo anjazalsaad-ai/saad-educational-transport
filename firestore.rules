@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+    function owns(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Profile documents are keyed by Firebase Auth UID. Users cannot grant themselves admin.
+    match /users/{uid} {
+      allow read: if owns(uid) || isAdmin();
+      allow create: if owns(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.role in ['guardian', 'captain']
+        && request.resource.data.keys().hasOnly([
+          'uid', 'role', 'displayName', 'phone', 'city', 'createdAt', 'updatedAt',
+          'demo', 'status', 'availability'
+        ]);
+      allow update: if (owns(uid) && resource.data.role == request.resource.data.role
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'phone', 'city', 'updatedAt', 'availability'
+        ])) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Requests are readable only by their guardian, assigned captain, or admin.
+    match /serviceRequests/{requestId} {
+      allow create: if signedIn()
+        && request.resource.data.guardianUid == request.auth.uid
+        && request.resource.data.status == 'new'
+        && request.resource.data.keys().hasOnly([
+          'guardianUid', 'captainUid', 'city', 'destinationType', 'serviceType',
+          'priceMonthly', 'status', 'createdAt', 'updatedAt', 'demo'
+        ]);
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.guardianUid == request.auth.uid)
+        || (signedIn() && resource.data.captainUid == request.auth.uid);
+      allow update: if isAdmin()
+        || (signedIn()
+          && resource.data.captainUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          && request.resource.data.status in ['accepted', 'declined', 'in_service', 'completed', 'cancelled']);
+      allow delete: if isAdmin();
+    }
+
+    // Append-only activity events: clients may create narrowly-scoped events, never edit/delete.
+    match /activityEvents/{eventId} {
+      allow create: if signedIn()
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'actorUid', 'actorRole', 'eventType', 'targetType', 'targetId', 'summary', 'createdAt', 'demo'
+        ]);
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.actorUid == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
